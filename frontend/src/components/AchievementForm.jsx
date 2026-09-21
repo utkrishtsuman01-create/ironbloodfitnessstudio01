@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { Plus, Trash2, UploadCloud, X } from "lucide-react";
 import { toast } from "sonner";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api/achievements`;
+const API = "/api/achievements";
 const MAX_MB = 8;
 const ALLOWED = ["image/jpeg", "image/png", "image/webp"];
 const TIERS = [
