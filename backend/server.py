@@ -8,6 +8,7 @@ import bcrypt
 import jwt
 import requests
 from dotenv import load_dotenv
+from vercel.blob import AsyncBlobClient
 from fastapi import (
     APIRouter,
     Depends,
@@ -379,44 +380,23 @@ ALLOWED_IMAGE_TYPES = {
 MAX_UPLOAD_BYTES = 4 * 1024 * 1024
 
 
-def put_object(path: str, data: bytes, content_type: str) -> dict:
-    token = os.environ.get("VERCEL_OIDC_TOKEN")
-    store_id = os.environ.get("BLOB_STORE_ID")
+async def put_object(path: str, data: bytes, content_type: str) -> dict:
+    from vercel import blob
 
-    if not token or not store_id:
-        raise RuntimeError("Vercel Blob OIDC credentials are missing")
-
-    store_id = store_id.removeprefix("store_")
-
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "x-vercel-blob-store-id": store_id,
-        "x-vercel-blob-access": "public",
-        "x-content-type": content_type,
-        "x-add-random-suffix": "0",
-        "x-api-version": "12",
-        "x-api-blob-request-id": f"{store_id}:{uuid.uuid4().hex}",
-        "x-api-blob-request-attempt": "0",
-    }
-
-    response = requests.put(
-        "https://vercel.com/api/blob/",
-        params={"pathname": path},
-        headers=headers,
-        data=data,
-        timeout=60,
+    result = await blob.put(
+        path,
+        data,
+        access="public",
+        content_type=content_type,
+        add_random_suffix=False,
     )
 
-    response.raise_for_status()
-    result = response.json()
-
     return {
-        "path": result["url"],
-        "url": result["url"],
+        "path": result.url,
+        "url": result.url,
         "size": len(data),
-        "content_type": result["contentType"],
+        "content_type": result.content_type,
     }
-
 
 def get_object(url: str):
     resp = requests.get(url, timeout=60)
@@ -467,7 +447,7 @@ async def upload_gallery_image(
     path = f"{APP_NAME}/gallery/{file_id}.{ALLOWED_IMAGE_TYPES[content_type]}"
 
     try:
-        result = put_object(path, data, content_type)
+       result = await put_object(path, data, content_type)
     except Exception as exc:
         logger.error(f"Gallery upload storage failure: {exc}")
         raise HTTPException(
