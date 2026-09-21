@@ -8,7 +8,6 @@ import bcrypt
 import jwt
 import requests
 from dotenv import load_dotenv
-from vercel.blob import AsyncBlobClient
 from fastapi import (
     APIRouter,
     Depends,
@@ -370,7 +369,6 @@ async def startup_auth():
 
 # ---------------- Public gallery (visitor uploads) ----------------
 
-from vercel.blob import BlobClient
 
 APP_NAME = "ironblood-fitness"
 ALLOWED_IMAGE_TYPES = {
@@ -382,20 +380,41 @@ MAX_UPLOAD_BYTES = 4 * 1024 * 1024
 
 
 def put_object(path: str, data: bytes, content_type: str) -> dict:
-    with BlobClient() as client:
-        result = client.put(
-            path,
-            data,
-            access="public",
-            content_type=content_type,
-            add_random_suffix=False,
-            overwrite=False,
-        )
+    token = os.environ.get("VERCEL_OIDC_TOKEN")
+    store_id = os.environ.get("BLOB_STORE_ID")
+
+    if not token or not store_id:
+        raise RuntimeError("Vercel Blob OIDC credentials are missing")
+
+    store_id = store_id.removeprefix("store_")
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "x-vercel-blob-store-id": store_id,
+        "x-vercel-blob-access": "public",
+        "x-content-type": content_type,
+        "x-add-random-suffix": "0",
+        "x-api-version": "12",
+        "x-api-blob-request-id": f"{store_id}:{uuid.uuid4().hex}",
+        "x-api-blob-request-attempt": "0",
+    }
+
+    response = requests.put(
+        "https://vercel.com/api/blob/",
+        params={"pathname": path},
+        headers=headers,
+        data=data,
+        timeout=60,
+    )
+
+    response.raise_for_status()
+    result = response.json()
 
     return {
-        "path": result.url,
+        "path": result["url"],
+        "url": result["url"],
         "size": len(data),
-        "content_type": result.content_type,
+        "content_type": result["contentType"],
     }
 
 
