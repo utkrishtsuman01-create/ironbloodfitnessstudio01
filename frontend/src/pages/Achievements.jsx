@@ -11,7 +11,7 @@ import SocialIcons from "@/components/SocialIcons";
 import { useAuth } from "@/context/AuthContext";
 import { MEDAL_STYLES, IMAGES, SOCIALS } from "@/data/content";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api/achievements`;
+const API = "/api/achievements";
 
 const FILTERS = [
     { key: "all", label: "All" },
