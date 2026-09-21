@@ -381,9 +381,11 @@ MAX_UPLOAD_BYTES = 4 * 1024 * 1024
 
 
 async def put_object(path: str, data: bytes, content_type: str) -> dict:
-    from vercel import blob
+    from vercel.blob import AsyncBlobClient
 
-    result = await blob.put(
+    client = AsyncBlobClient()
+
+    result = await client.put(
         path,
         data,
         access="public",
