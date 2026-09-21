@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import Lightbox from "@/components/Lightbox";
 import { useAuth } from "@/context/AuthContext";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api/gallery`;
+const API = "/api/gallery";
 const MAX_MB = 8;
 const ALLOWED = ["image/jpeg", "image/png", "image/webp"];
 
