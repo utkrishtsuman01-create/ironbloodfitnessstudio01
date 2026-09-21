@@ -8,6 +8,7 @@ import bcrypt
 import jwt
 import requests
 from dotenv import load_dotenv
+from vercel.blob import AsyncBlobClient
 from fastapi import (
     APIRouter,
     Depends,
@@ -369,69 +370,92 @@ async def startup_auth():
 
 # ---------------- Public gallery (visitor uploads) ----------------
 
-STORAGE_BASE = (os.environ.get("INTEGRATION_PROXY_URL") or "").strip() or "https://integrations.emergentagent.com"
-STORAGE_URL = STORAGE_BASE.rstrip("/") + "/objstore/api/v1/storage"
-EMERGENT_KEY = os.environ.get("EMERGENT_LLM_KEY")
+from vercel.blob import BlobClient
+
 APP_NAME = "ironblood-fitness"
-ALLOWED_IMAGE_TYPES = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
-MAX_UPLOAD_BYTES = 8 * 1024 * 1024
-storage_key = None
-
-
-def init_storage(force: bool = False):
-    global storage_key
-    if storage_key and not force:
-        return storage_key
-    resp = requests.post(f"{STORAGE_URL}/init", json={"emergent_key": EMERGENT_KEY}, timeout=30)
-    resp.raise_for_status()
-    storage_key = resp.json()["storage_key"]
-    return storage_key
+ALLOWED_IMAGE_TYPES = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+}
+MAX_UPLOAD_BYTES = 4 * 1024 * 1024
 
 
 def put_object(path: str, data: bytes, content_type: str) -> dict:
-    resp = requests.put(
-        f"{STORAGE_URL}/objects/{path}",
-        headers={"X-Storage-Key": init_storage(), "Content-Type": content_type},
-        data=data,
-        timeout=120,
-    )
-    resp.raise_for_status()
-    return resp.json()
+    with BlobClient() as client:
+        result = client.put(
+            path,
+            data,
+            access="public",
+            content_type=content_type,
+            add_random_suffix=False,
+            overwrite=False,
+        )
+
+    return {
+        "path": result.url,
+        "size": len(data),
+        "content_type": result.content_type,
+    }
 
 
-def get_object(path: str):
-    resp = requests.get(
-        f"{STORAGE_URL}/objects/{path}",
-        headers={"X-Storage-Key": init_storage()},
-        timeout=60,
-    )
+def get_object(url: str):
+    resp = requests.get(url, timeout=60)
     resp.raise_for_status()
-    return resp.content, resp.headers.get("Content-Type", "application/octet-stream")
+    return resp.content, resp.headers.get(
+        "Content-Type", "application/octet-stream"
+    )
 
 
 @api_router.get("/gallery")
 async def list_gallery():
-    docs = await db.gallery_uploads.find({"is_deleted": False}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    docs = await db.gallery_uploads.find(
+        {"is_deleted": False},
+        {"_id": 0},
+    ).sort("created_at", -1).to_list(500)
     return {"items": docs}
 
 
 @api_router.post("/gallery", status_code=201)
-async def upload_gallery_image(file: UploadFile = File(...), caption: str = Form(""), _owner: dict = Depends(require_owner)):
+async def upload_gallery_image(
+    file: UploadFile = File(...),
+    caption: str = Form(""),
+    _owner: dict = Depends(require_owner),
+):
     content_type = (file.content_type or "").lower()
+
     if content_type not in ALLOWED_IMAGE_TYPES:
-        raise HTTPException(status_code=400, detail="Unsupported file type. Please upload a JPG, PNG or WEBP image.")
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file type. Please upload a JPG, PNG or WEBP image.",
+        )
+
     data = await file.read()
+
     if not data:
-        raise HTTPException(status_code=400, detail="The selected file is empty.")
+        raise HTTPException(
+            status_code=400,
+            detail="The selected file is empty.",
+        )
+
     if len(data) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=400, detail="Image is too large. Maximum size is 8 MB.")
+        raise HTTPException(
+            status_code=400,
+            detail="Image is too large. Maximum size is 4 MB.",
+        )
+
     file_id = str(uuid.uuid4())
     path = f"{APP_NAME}/gallery/{file_id}.{ALLOWED_IMAGE_TYPES[content_type]}"
+
     try:
         result = put_object(path, data, content_type)
     except Exception as exc:
         logger.error(f"Gallery upload storage failure: {exc}")
-        raise HTTPException(status_code=502, detail="Upload failed. Please try again.")
+        raise HTTPException(
+            status_code=502,
+            detail="Upload failed. Please try again.",
+        )
+
     doc = {
         "id": file_id,
         "storage_path": result["path"],
@@ -441,6 +465,7 @@ async def upload_gallery_image(file: UploadFile = File(...), caption: str = Form
         "is_deleted": False,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
+
     await db.gallery_uploads.insert_one(doc)
     doc.pop("_id", None)
     return doc
@@ -448,13 +473,24 @@ async def upload_gallery_image(file: UploadFile = File(...), caption: str = Form
 
 @api_router.get("/gallery/file/{file_id}")
 async def get_gallery_file(file_id: str):
-    record = await db.gallery_uploads.find_one({"id": file_id, "is_deleted": False})
+    record = await db.gallery_uploads.find_one(
+        {"id": file_id, "is_deleted": False}
+    )
+
     if not record:
-        raise HTTPException(status_code=404, detail="Image not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Image not found",
+        )
+
     try:
         data, content_type = get_object(record["storage_path"])
     except Exception:
-        raise HTTPException(status_code=404, detail="Image not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Image not found",
+        )
+
     return Response(
         content=data,
         media_type=record.get("content_type", content_type),
@@ -463,23 +499,22 @@ async def get_gallery_file(file_id: str):
 
 
 @api_router.delete("/gallery/{file_id}")
-async def delete_gallery_image(file_id: str, _owner: dict = Depends(require_owner)):
+async def delete_gallery_image(
+    file_id: str,
+    _owner: dict = Depends(require_owner),
+):
     result = await db.gallery_uploads.update_one(
-        {"id": file_id, "is_deleted": False}, {"$set": {"is_deleted": True}}
+        {"id": file_id, "is_deleted": False},
+        {"$set": {"is_deleted": True}},
     )
+
     if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Image not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Image not found",
+        )
+
     return {"ok": True}
-
-
-@app.on_event("startup")
-async def startup_storage():
-    try:
-        init_storage()
-        logger.info("Object storage initialized")
-    except Exception as exc:
-        logger.error(f"Object storage init failed: {exc}")
-
 
 # ---------------- Achievements (public, directly editable) ----------------
 import json as jsonlib
