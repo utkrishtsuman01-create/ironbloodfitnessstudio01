@@ -100,10 +100,10 @@ export const GalleryPublic = () => {
         }
     };
 
-    const lightboxImages = items.map((i) => ({
-        src: `${API}/file/${i.id}`,
-        alt: i.caption || "Visitor photo shared on the Ironblood community wall",
-    }));
+   const lightboxImages = items.map((i) => ({
+    src: i.url || `${API}/file/${i.id}`,
+    alt: i.caption || "Visitor photo shared on the Ironblood community wall",
+}));
 
     return (
         <section className="on-gold border-t border-border py-16 sm:py-24" data-testid="community-wall-section">
@@ -158,7 +158,7 @@ export const GalleryPublic = () => {
                                     className="block w-full"
                                 >
                                     <img
-                                        src={`${API}/file/${item.id}`}
+                                        src={item.url || `${API}/file/${item.id}`}
                                         alt={item.caption || "Visitor photo shared on the Ironblood community wall"}
                                         loading="lazy"
                                         className="aspect-[4/3] w-full object-cover transition-transform duration-700 group-hover:scale-105"
@@ -301,7 +301,7 @@ export const GalleryPublic = () => {
                             <h3 className="font-display text-2xl font-extrabold uppercase text-white">Remove this image?</h3>
                             <p className="mt-2 text-sm text-stone-400">Are you sure you want to remove this image? This cannot be undone.</p>
                             <img
-                                src={`${API}/file/${deleteTarget.id}`}
+                                src={deleteTarget.url || `${API}/file/${deleteTarget.id}`}
                                 alt={deleteTarget.caption || "Image selected for removal"}
                                 className="mt-5 max-h-48 w-full border border-border object-contain"
                                 data-testid="gallery-delete-preview"
