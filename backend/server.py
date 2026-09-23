@@ -390,7 +390,9 @@ MAX_UPLOAD_BYTES = 4 * 1024 * 1024
 async def put_object(path: str, data: bytes, content_type: str) -> dict:
     from vercel.blob import AsyncBlobClient
 
-    client = AsyncBlobClient()
+    token = os.environ["BLOB_READ_WRITE_TOKEN_READ_WRITE_TOKEN"]
+
+    client = AsyncBlobClient(token=token)
 
     result = await client.put(
         path,
@@ -401,12 +403,8 @@ async def put_object(path: str, data: bytes, content_type: str) -> dict:
     )
 
     return {
-        "path": result.url,
         "url": result.url,
-        "size": len(data),
-        "content_type": result.content_type,
     }
-
 def get_object(url: str):
     resp = requests.get(url, timeout=60)
     resp.raise_for_status()
