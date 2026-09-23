@@ -402,9 +402,12 @@ async def put_object(path: str, data: bytes, content_type: str) -> dict:
         add_random_suffix=False,
     )
 
+    metadata = await client.head(result.url)
+
     return {
         "url": result.url,
         "path": result.pathname,
+        "size": metadata.size,
     }
 def get_object(url: str):
     resp = requests.get(url, timeout=60)
