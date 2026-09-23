@@ -404,6 +404,7 @@ async def put_object(path: str, data: bytes, content_type: str) -> dict:
 
     return {
         "url": result.url,
+        "path": result.pathname,
     }
 def get_object(url: str):
     resp = requests.get(url, timeout=60)
