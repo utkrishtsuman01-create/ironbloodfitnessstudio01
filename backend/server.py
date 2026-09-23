@@ -603,20 +603,44 @@ def parse_achievement_form(title, year, location, org, description, results_raw)
 
 async def store_achievement_image(file):
     content_type = (file.content_type or "").lower()
+
     if content_type not in ALLOWED_IMAGE_TYPES:
-        raise HTTPException(status_code=400, detail="Unsupported file type. Please upload a JPG, PNG or WEBP image.")
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file type. Please upload a JPG, PNG or WEBP image.",
+        )
+
     data = await file.read()
+
     if not data:
-        raise HTTPException(status_code=400, detail="The selected file is empty.")
+        raise HTTPException(
+            status_code=400,
+            detail="The selected file is empty.",
+        )
+
     if len(data) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=400, detail="Image is too large. Maximum size is 8 MB.")
+        raise HTTPException(
+            status_code=400,
+            detail="Image is too large. Maximum size is 8 MB.",
+        )
+
     path = f"{APP_NAME}/achievements/{uuid.uuid4()}.{ALLOWED_IMAGE_TYPES[content_type]}"
+
     try:
-        put_object(path, data, content_type)
+        result = await put_object(path, data, content_type)
     except Exception as exc:
         logger.error(f"Achievement image storage failure: {exc}")
-        raise HTTPException(status_code=502, detail="Image upload failed. Please try again.")
-    return {"path": path, "content_type": content_type, "size": len(data)}
+        raise HTTPException(
+            status_code=502,
+            detail="Image upload failed. Please try again.",
+        )
+
+    return {
+        "path": result["path"],
+        "url": result["url"],
+        "content_type": content_type,
+        "size": len(data),
+    }
 
 
 @api_router.get("/achievements")
