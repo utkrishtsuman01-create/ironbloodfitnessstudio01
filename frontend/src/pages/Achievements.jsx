@@ -193,13 +193,13 @@ const Achievements = () => {
                                             data-testid={`achievement-card-${i + 1}`}
                                         >
                                             {a.image && (
-                                                <img
-                                                    src={`${API}/file/${a.id}`}
-                                                    alt={a.title}
-                                                    loading="lazy"
-                                                    className="mb-5 aspect-[16/9] w-full border border-border object-cover"
-                                                    data-testid={`achievement-image-${i + 1}`}
-                                                />
+                                              <img
+                                                src={a.image.url || `${API}/file/${a.id}`}
+                                                alt={a.title}
+                                                loading="lazy"
+                                                className="mb-5 aspect-[16/9] w-full border border-border object-cover"
+                                                data-testid={`achievement-image-${i + 1}`}
+                                              />
                                             )}
                                             <div className="flex items-start justify-between gap-4">
                                                 <p className="font-mono2 text-[10px] uppercase tracking-[0.25em] text-stone-600">
