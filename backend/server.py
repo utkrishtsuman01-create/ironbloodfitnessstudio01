@@ -467,14 +467,15 @@ async def upload_gallery_image(
         )
 
     doc = {
-        "id": file_id,
-        "storage_path": result["path"],
-        "caption": caption.strip()[:140],
-        "content_type": content_type,
-        "size": result["size"],
-        "is_deleted": False,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
+    "id": file_id,
+    "storage_path": result["path"],
+    "url": result["url"],
+    "caption": caption.strip()[:140],
+    "content_type": content_type,
+    "size": result["size"],
+    "is_deleted": False,
+    "created_at": datetime.now(timezone.utc).isoformat(),
+}
 
     await db.gallery_uploads.insert_one(doc)
     doc.pop("_id", None)
