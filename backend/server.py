@@ -9,6 +9,7 @@ import jwt
 import requests
 from dotenv import load_dotenv
 from vercel.blob import AsyncBlobClient
+from vercel.headers import set_headers
 from fastapi import (
     APIRouter,
     Depends,
@@ -34,6 +35,12 @@ db = client[os.environ['DB_NAME']]
 
 # Create the main app without a prefix
 app = FastAPI()
+
+
+@app.middleware("http")
+async def vercel_context_middleware(request: Request, call_next):
+    set_headers(request.headers)
+    return await call_next(request)
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
