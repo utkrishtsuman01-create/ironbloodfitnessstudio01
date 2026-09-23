@@ -484,28 +484,28 @@ async def upload_gallery_image(
 @api_router.get("/gallery/file/{file_id}")
 async def get_gallery_file(file_id: str):
     record = await db.gallery_uploads.find_one(
-        {"id": file_id, "is_deleted": False}
+        {"id": file_id, "is_deleted": False},
+        {"_id": 0},
     )
 
     if not record:
         raise HTTPException(
             status_code=404,
-            detail="Image not found",
+            detail="Image record not found",
         )
 
-    try:
-        data, content_type = get_object(record["storage_path"])
-    except Exception:
+    storage_url = record.get("storage_path") or record.get("url")
+
+    if not storage_url:
         raise HTTPException(
             status_code=404,
-            detail="Image not found",
+            detail="Image URL not found",
         )
 
-    return Response(
-        content=data,
-        media_type=record.get("content_type", content_type),
-        headers={"Cache-Control": "public, max-age=86400"},
-    )
+    return {
+        "url": storage_url,
+        "content_type": record.get("content_type", ""),
+    }
 
 
 @api_router.delete("/gallery/{file_id}")
